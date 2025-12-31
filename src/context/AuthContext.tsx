@@ -72,7 +72,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }, []);
 
     return (
-        <AuthContext.Provider value={{ user, role, loading, refreshRole: async () => user && fetchRole(user) }}>
+        <AuthContext.Provider
+            value={{
+                user,
+                role,
+                loading,
+                refreshRole: async () => {
+                    if (user) {
+                        await fetchRole(user);
+                    }
+                },
+            }}
+        >
             {children}
         </AuthContext.Provider>
     );

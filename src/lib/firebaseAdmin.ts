@@ -3,6 +3,12 @@ import type { ServiceAccount } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
+type RawServiceAccount = ServiceAccount & {
+  project_id?: string;
+  client_email?: string;
+  private_key?: string;
+};
+
 function loadServiceAccount(): ServiceAccount {
   const base64 = process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64;
   const json = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
@@ -15,11 +21,29 @@ function loadServiceAccount(): ServiceAccount {
     throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON(_BASE64) is not set');
   }
 
+  let parsed: RawServiceAccount;
   try {
-    return JSON.parse(payload) as ServiceAccount;
+    parsed = JSON.parse(payload) as RawServiceAccount;
   } catch {
     throw new Error('Unable to parse Firebase service account JSON');
   }
+
+  const projectId = parsed.projectId ?? parsed.project_id;
+  const clientEmail = parsed.clientEmail ?? parsed.client_email;
+  const privateKey =
+    parsed.privateKey ?? parsed.private_key?.replace(/\\n/g, '\n');
+
+  if (!privateKey || !clientEmail) {
+    throw new Error(
+      'Firebase service account JSON missing private key or client email',
+    );
+  }
+
+  return {
+    projectId,
+    clientEmail,
+    privateKey,
+  };
 }
 
 function initAdminApp() {
@@ -30,7 +54,7 @@ function initAdminApp() {
 
   return initializeApp({
     credential: cert(serviceAccount),
-    projectId: serviceAccount.project_id,
+    projectId: serviceAccount.projectId,
   });
 }
 
